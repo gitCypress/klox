@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="GenerateAST" type="JetRunConfigurationType">
+    <option name="MAIN_CLASS_NAME" value="exp.compiler.klox.tool.GenerateASTKt" />
+    <module name="klox" />
+    <option name="PROGRAM_PARAMETERS" value="src/main/kotlin/" />
+    <shortenClasspath name="NONE" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

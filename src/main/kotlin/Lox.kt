@@ -1,0 +1,68 @@
+package exp.compiler.klox
+
+import exp.compiler.klox.extension.eprintln
+import exp.compiler.klox.tool.toAST
+import java.io.File
+import kotlin.system.exitProcess
+
+// extensions
+internal fun String.scanTokens(): List<Token> = Scanner(this).scanTokens()
+internal fun List<Token>.parse(): Expr? = Parser(this).parse()
+
+fun main(args: Array<String>) {
+    when {
+        args.size > 1 -> {
+            println("Usage: klox [script]")
+            exitProcess(64);
+        }
+
+        args.size == 1 -> runFile(args[0])
+        else -> runPrompt()
+    }
+}
+
+private fun runPrompt() {
+    generateSequence {
+        print("> ")
+        readlnOrNull()
+    }.forEach { line ->
+        run(line)
+    }
+
+    LErr.resetError()
+}
+
+private fun runFile(path: String) {
+    val sourceCode = File(path).readText()
+    run(sourceCode)
+
+    if (LErr.hadError) exitProcess(65)
+}
+
+private fun run(source: String) = source
+    .scanTokens().also { println("[test:main::run/scanTokens] $it") }
+    .parse()
+    ?.toAST()
+    ?.let { println(it) }
+
+
+internal object LErr {
+    var hadError: Boolean = false
+        private set
+
+    fun error(line: Int, message: String) = report(line, "", message)
+
+    fun error(token: Token, message: String) = when (token.type) {
+        TokenType.EOF -> report(token.line, "EOF", message)
+        else -> report(token.line, "at '${token.lexeme}'", message)
+    }
+
+    fun resetError() {
+        hadError = false
+    }
+
+    private fun report(line: Int, where: String, message: String) {
+        eprintln("[line $line] Error $where: $message")
+        hadError = true
+    }
+}
