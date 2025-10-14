@@ -1,4 +1,9 @@
-package exp.compiler.klox
+package exp.compiler.klox.fronted
+
+import exp.compiler.klox.common.LErr
+import exp.compiler.klox.lang.Expr
+import exp.compiler.klox.lang.Token
+import exp.compiler.klox.lang.TokenType
 
 internal class Parser(val tokens: List<Token>) {
     private var current: Int = 0

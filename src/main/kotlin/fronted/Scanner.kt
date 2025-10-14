@@ -1,26 +1,8 @@
-package exp.compiler.klox
+package exp.compiler.klox.fronted
 
-fun Char.isIdentifierStart() = isLetter() || this == '_'
-fun Char.isIdentifierPart() = isIdentifierStart() || isDigit()
-
-private val keywords = hashMapOf(
-    "and" to TokenType.AND,
-    "class" to TokenType.CLASS,
-    "else" to TokenType.ELSE,
-    "false" to TokenType.FALSE,
-    "for" to TokenType.FOR,
-    "fun" to TokenType.FUN,
-    "if" to TokenType.IF,
-    "nil" to TokenType.NIL,
-    "or" to TokenType.OR,
-    "print" to TokenType.PRINT,
-    "return" to TokenType.RETURN,
-    "super" to TokenType.SUPER,
-    "this" to TokenType.THIS,
-    "true" to TokenType.TRUE,
-    "var" to TokenType.VAR,
-    "while" to TokenType.WHILE
-)
+import exp.compiler.klox.common.*
+import exp.compiler.klox.lang.Token
+import exp.compiler.klox.lang.TokenType
 
 internal class Scanner(private val source: String) {
     private var line = 1  // current 所指所在代码行
@@ -198,3 +180,22 @@ internal class Scanner(private val source: String) {
         return captureTokenWithVariableText(type)
     }
 }
+
+private val keywords = hashMapOf(
+    "and" to TokenType.AND,
+    "class" to TokenType.CLASS,
+    "else" to TokenType.ELSE,
+    "false" to TokenType.FALSE,
+    "for" to TokenType.FOR,
+    "fun" to TokenType.FUN,
+    "if" to TokenType.IF,
+    "nil" to TokenType.NIL,
+    "or" to TokenType.OR,
+    "print" to TokenType.PRINT,
+    "return" to TokenType.RETURN,
+    "super" to TokenType.SUPER,
+    "this" to TokenType.THIS,
+    "true" to TokenType.TRUE,
+    "var" to TokenType.VAR,
+    "while" to TokenType.WHILE
+)

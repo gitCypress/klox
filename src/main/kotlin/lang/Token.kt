@@ -1,4 +1,4 @@
-package exp.compiler.klox
+package exp.compiler.klox.lang
 
 /**
  * 词法单元

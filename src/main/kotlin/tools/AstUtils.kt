@@ -1,8 +1,8 @@
-package exp.compiler.klox.tool
+package exp.compiler.klox.tools
 
-import exp.compiler.klox.Expr
-import exp.compiler.klox.Token
-import exp.compiler.klox.TokenType
+import exp.compiler.klox.lang.Expr
+import exp.compiler.klox.lang.Token
+import exp.compiler.klox.lang.TokenType
 
 internal fun Expr.toRPN(): String =
     when (this) {

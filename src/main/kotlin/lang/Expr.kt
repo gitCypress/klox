@@ -1,4 +1,4 @@
-package exp.compiler.klox
+package exp.compiler.klox.lang
 
 // Auto-generated code, DO NOT modify directly.
 

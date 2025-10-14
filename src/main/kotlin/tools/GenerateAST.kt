@@ -40,7 +40,7 @@ private fun defineAst(baseName: String, types: List<String>): String {
     }
 
     return """
-        |package exp.compiler.klox
+        |package exp.compiler.klox.lang
         |
         |// Auto-generated code, DO NOT modify directly.
         |
