@@ -4,6 +4,7 @@
       <w>eprintln</w>
       <w>exprs</w>
       <w>klox</w>
+      <w>tprintln</w>
     </words>
   </dictionary>
 </component>

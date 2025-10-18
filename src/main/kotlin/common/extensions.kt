@@ -10,6 +10,10 @@ internal fun eprintln(message: Any?) {
     System.err.println(message)
 }
 
+internal fun tprintln(message: Any?) {
+    if (LConfig.isDebug) println(message)
+}
+
 // Lox.kt
 internal fun String.scanTokens(): List<Token> = Scanner(this).scanTokens()
 internal fun List<Token>.parse(): Expr? = Parser(this).parse()

@@ -6,12 +6,19 @@ import exp.compiler.klox.lang.TokenType
 internal object LErr {
     var hadError: Boolean = false
         private set
+    var hadRuntimeError: Boolean = false
+        private set
 
     fun error(line: Int, message: String) = report(line, "", message)
 
     fun error(token: Token, message: String) = when (token.type) {
         TokenType.EOF -> report(token.line, "EOF", message)
         else -> report(token.line, "at '${token.lexeme}'", message)
+    }
+
+    fun runtimeError(error: RuntimeError) {
+        eprintln("${error.message}\n[line " + error.token!!.line + "]")
+        hadRuntimeError = true
     }
 
     fun resetError() {
@@ -23,3 +30,5 @@ internal object LErr {
         hadError = true
     }
 }
+
+internal class RuntimeError(val token: Token?, message: String?) : RuntimeException(message)
