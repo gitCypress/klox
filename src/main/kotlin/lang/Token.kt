@@ -14,6 +14,6 @@ internal data class Token(
     val line: Int
 ) {
     override fun toString(): String {
-        return "$type $lexeme $literal"
+        return "$type | $lexeme | $literal"
     }
 }

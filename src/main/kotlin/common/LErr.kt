@@ -3,6 +3,9 @@ package exp.compiler.klox.common
 import exp.compiler.klox.lang.Token
 import exp.compiler.klox.lang.TokenType
 
+internal class RuntimeError(val token: Token?, message: String?) : RuntimeException(message)
+internal class ParseError : RuntimeException()
+
 internal object LErr {
     var hadError: Boolean = false
         private set
@@ -30,5 +33,3 @@ internal object LErr {
         hadError = true
     }
 }
-
-internal class RuntimeError(val token: Token?, message: String?) : RuntimeException(message)

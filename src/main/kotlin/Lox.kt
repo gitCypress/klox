@@ -1,7 +1,7 @@
 package exp.compiler.klox
 
 import exp.compiler.klox.common.*
-import exp.compiler.klox.fronted.interpret
+import exp.compiler.klox.fronted.*
 import exp.compiler.klox.tools.toAST
 import java.io.File
 import kotlin.system.exitProcess
