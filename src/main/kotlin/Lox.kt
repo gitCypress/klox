@@ -2,7 +2,6 @@ package exp.compiler.klox
 
 import exp.compiler.klox.common.*
 import exp.compiler.klox.fronted.*
-import exp.compiler.klox.tools.toAST
 import java.io.File
 import kotlin.system.exitProcess
 
@@ -42,10 +41,11 @@ private fun runFile(path: String) {
 }
 
 private fun run(source: String) = source
-    .scan().also { tprintln("[main::run/scanTokens] $it") }
-    .parse().also { tprintln("[main::run/parse(toAST)] ${it?.toAST()}") }
+    .scan()
+//    .also { tprintln("[main::run/scanTokens] $it") }
+    .parse()
+//    .also { tprintln("[main::run/parse(toAST)] ${it?.toAST()}") }
     ?.interpret()
-    .also { println(it.stringify()) }
 
 
 

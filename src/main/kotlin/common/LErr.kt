@@ -3,7 +3,7 @@ package exp.compiler.klox.common
 import exp.compiler.klox.lang.Token
 import exp.compiler.klox.lang.TokenType
 
-internal class RuntimeError(val token: Token?, message: String?) : RuntimeException(message)
+internal class RuntimeError(val line: Int, message: String?) : RuntimeException(message)
 internal class ParseError : RuntimeException()
 
 internal object LErr {
@@ -20,7 +20,7 @@ internal object LErr {
     }
 
     fun runtimeError(error: RuntimeError) {
-        eprintln("${error.message}\n[line " + error.token!!.line + "]")
+        eprintln("${error.message}\n[line " + error.line + "]")
         hadRuntimeError = true
     }
 

@@ -2,82 +2,91 @@ package exp.compiler.klox.fronted
 
 import exp.compiler.klox.common.LErr
 import exp.compiler.klox.common.RuntimeError
+import exp.compiler.klox.common.loxRequire
+import exp.compiler.klox.common.stringify
+import exp.compiler.klox.lang.Expr
+import exp.compiler.klox.lang.Stmt
 import exp.compiler.klox.lang.Token
 import exp.compiler.klox.lang.TokenType
-import exp.compiler.klox.lang.Expr
 
-internal fun Expr.interpret(): Any? = try {
-    when (this) {
-        is Expr.Literal -> this.value
-
-        is Expr.Grouping -> this.expression.interpret()
-
-        is Expr.Unary -> {
-            val right = this.right.interpret()
-
-            when (this.operator.type) {
-                TokenType.BANG -> !isTruthy(right)
-                TokenType.MINUS -> {
-                    checkNumberOperand(this.operator, right)
-                    -(right as Double)
-                }
-
-                else -> null
-            }
-        }
-
-        is Expr.Binary -> {
-            val left = this.left.interpret()
-            val right = this.right.interpret()
-
-            when (this.operator.type) {
-                // --- 算术运算 ---
-                TokenType.MINUS, TokenType.STAR, TokenType.SLASH -> {
-                    checkNumberOperands(this.operator, left, right)
-                    val leftDouble = left as Double
-                    val rightDouble = right as Double
-
-                    when (this.operator.type) {
-                        TokenType.MINUS -> leftDouble - rightDouble
-                        TokenType.STAR -> leftDouble * rightDouble
-                        TokenType.SLASH -> {
-                            if (rightDouble == 0.0) throw RuntimeError(this.operator, "Division by zero.")
-                            leftDouble / rightDouble
-                        }
-
-                        else -> null
-                    }
-                }
-                // --- 特殊的"+"运算 ---
-                TokenType.PLUS -> when (left) {
-                    is Double if right is Double -> left + right
-                    is String if right is String -> left + right
-                    else -> throw RuntimeError(this.operator, "Operands must be two numbers or two strings.")
-                }
-                // --- 比较运算 ---
-                TokenType.GREATER, TokenType.GREATER_EQUAL, TokenType.LESS, TokenType.LESS_EQUAL -> {
-                    checkNumberOperands(this.operator, left, right)
-                    val leftDouble = left as Double
-                    val rightDouble = right as Double
-
-                    when (this.operator.type) {
-                        TokenType.GREATER -> leftDouble > rightDouble
-                        TokenType.GREATER_EQUAL -> leftDouble >= rightDouble
-                        TokenType.LESS -> leftDouble < rightDouble
-                        TokenType.LESS_EQUAL -> leftDouble <= rightDouble
-                        else -> null // 不可达
-                    }
-                }
-                // --- 相等性判断 ---
-                TokenType.BANG_EQUAL -> !isEqual(left, right)
-                TokenType.EQUAL_EQUAL -> isEqual(left, right)
-
-                else -> null  //
-            }
-        }
+internal fun List<Stmt>.interpret() = try {
+    for (stmt in this) {
+        stmt.execute()
     }
 } catch (e: RuntimeError) {
     LErr.runtimeError(e)
+}
+
+private fun Stmt.execute() = when (this) {
+    is Stmt.Expression -> this.expression.value()
+    is Stmt.Print -> println(this.expression.value().stringify())
+}
+
+private fun Expr.value(): Any? = when (this) {
+    is Expr.Literal -> value
+    is Expr.Grouping -> expression.value()
+    is Expr.Unary -> evaluate()
+    is Expr.Binary -> evaluate()
+}
+
+private fun Expr.Unary.evaluate(): Any? = when (operator.type) {
+    TokenType.BANG -> !isTruthy(right.value())
+    TokenType.MINUS -> {
+        val rightValue = right.value()
+        loxRequire(rightValue is Double, operator) {"Operands must be numbers."}
+        -rightValue
+    }
+    else -> null
+}
+
+
+private fun Expr.Binary.evaluate(): Any? = when (this.operator.type) {
+    // --- 算术运算 ---
+    TokenType.MINUS, TokenType.STAR, TokenType.SLASH ->
+        evalNormalArithmetic(operator, left.value(), right.value())
+    // --- 特殊的"+"运算 ---
+    TokenType.PLUS ->
+        evalPlus(operator, left.value(), right.value())
+    // --- 比较运算 ---
+    TokenType.GREATER, TokenType.GREATER_EQUAL, TokenType.LESS, TokenType.LESS_EQUAL ->
+        evalCompare(operator, left.value(), right.value())
+    // --- 相等性判断 ---
+    TokenType.BANG_EQUAL -> !isEqual(left.value(), right.value())
+    TokenType.EQUAL_EQUAL -> isEqual(left.value(), right.value())
+    else -> null
+}
+
+private fun evalNormalArithmetic(token: Token, leftValue: Any?, rightValue: Any?): Double? {
+    loxRequire(leftValue is Double && rightValue is Double, token) {"Operands must be numbers."}
+
+    return when (token.type) {
+        TokenType.MINUS -> leftValue - rightValue
+        TokenType.STAR -> leftValue * rightValue
+        TokenType.SLASH -> {
+            if (rightValue == 0.0) throw RuntimeError(token.line, "Division by zero.")
+            leftValue / rightValue
+        }
+
+        else -> null
+    }
+}
+
+private fun evalPlus(token: Token, leftValue: Any?, rightValue: Any?): Any = when (leftValue) {
+    is Double if rightValue is Double -> leftValue + rightValue
+    is String if rightValue is String -> leftValue + rightValue
+    else -> throw RuntimeError(token.line, "Operands must be two numbers or two strings.")
+}
+
+private fun evalCompare(token: Token, leftValue: Any?, rightValue: Any?): Boolean? {
+    loxRequire(leftValue is Double && rightValue is Double, token) {"Operands must be numbers."}
+
+    return when (token.type) {
+        TokenType.GREATER -> leftValue > rightValue
+        TokenType.GREATER_EQUAL -> leftValue >= rightValue
+        TokenType.LESS -> leftValue < rightValue
+        TokenType.LESS_EQUAL -> leftValue <= rightValue
+        else -> null // 不可达
+    }
 }
 
 /**
@@ -98,20 +107,4 @@ private fun isEqual(a: Any?, b: Any?): Boolean = when (a) {
     null if b == null -> true
     null -> false
     else -> a == b
-}
-
-/**
- * 辅助函数：检查单个操作数是否为数字
- */
-private fun checkNumberOperand(operator: Token, operand: Any?) {
-    if (operand is Double) return
-    throw RuntimeError(operator, "Operand must be a number.")
-}
-
-/**
- * 辅助函数：检查两个操作数是否都为数字
- */
-private fun checkNumberOperands(operator: Token, left: Any?, right: Any?) {
-    if (left is Double && right is Double) return
-    throw RuntimeError(operator, "Operands must be numbers.")
 }

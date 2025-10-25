@@ -2,6 +2,10 @@
  * 递归下降解析器 Recursive Descent Parser
  *
  * 规则：
+ *      program        → statement* EOF ;
+ *
+ *      statement      → exprStmt | printStmt ;
+ *      printStmt      → "print" expression ";" ;
  *      expression     → equality
  *      equality       → comparison ( ( "!=" | "==" ) comparison )*
  *      comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )*
@@ -15,12 +19,17 @@ package exp.compiler.klox.fronted
 
 import exp.compiler.klox.common.LErr
 import exp.compiler.klox.common.ParseError
+import exp.compiler.klox.lang.Expr
+import exp.compiler.klox.lang.Stmt
 import exp.compiler.klox.lang.Token
 import exp.compiler.klox.lang.TokenType
-import exp.compiler.klox.lang.Expr
 
-internal fun List<Token>.parse(): Expr? = try {
-    ParserState(this).expression()
+internal fun List<Token>.parse(): List<Stmt>? = try {
+    ParserState(this).run {
+        buildList {
+            while (!isAtEnd()) add(statement())
+        }
+    }
 } catch (_: ParseError) {
     null
 }
@@ -29,6 +38,28 @@ private class ParserState(
     val tokens: List<Token>
 ) {
     var current = 0
+}
+
+private fun ParserState.statement(): Stmt =
+    if (match(TokenType.PRINT)) printStatement()
+    else expressionStatement()
+
+/**
+ * printStmt      → "print" expression ";" ;
+ */
+private fun ParserState.printStatement(): Stmt.Print {
+    val value = expression()
+    consumeOrErr(TokenType.SEMICOLON, "Expect ';' after value.")
+    return Stmt.Print(value)
+}
+
+/**
+ * exprStmt       → expression ";" ;
+ */
+private fun ParserState.expressionStatement(): Stmt.Expression {
+    val value = expression()
+    consumeOrErr(TokenType.SEMICOLON, "Expect ';' after expression.")
+    return Stmt.Expression(value)
 }
 
 /**
@@ -96,7 +127,7 @@ private fun ParserState.primary(): Expr = when {
     match(TokenType.NIL) -> Expr.Literal(null)
     match(TokenType.LEFT_PAREN) -> {
         val expr = expression()
-        consume(TokenType.RIGHT_PAREN, "Expected ')' after expression")
+        consumeOrErr(TokenType.RIGHT_PAREN, "Expected ')' after expression")
         Expr.Grouping(expr)
     }
 
@@ -122,16 +153,16 @@ private fun ParserState.advance(): Token {
     return previous()
 }
 
-private fun ParserState.check(type: TokenType): Boolean {
-    if (isAtEnd()) return false
-    return peek().type == type
-}
+private fun ParserState.check(type: TokenType): Boolean =
+    if (isAtEnd()) false
+    else peek().type == type
+
 
 private fun ParserState.isAtEnd(): Boolean = peek().type == TokenType.EOF
 private fun ParserState.peek(): Token = tokens[current]
 private fun ParserState.previous(): Token = tokens[current - 1]
 
-private fun ParserState.consume(type: TokenType, message: String): Token {
+private fun ParserState.consumeOrErr(type: TokenType, message: String): Token {
     if (check(type)) return advance()
     throw parseError(peek(), message)
 }
