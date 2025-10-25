@@ -1,4 +1,4 @@
-package exp.compiler.klox.fronted
+package exp.compiler.klox.runtime
 
 import exp.compiler.klox.common.LErr
 import exp.compiler.klox.common.RuntimeError
@@ -9,37 +9,69 @@ import exp.compiler.klox.lang.Stmt
 import exp.compiler.klox.lang.Token
 import exp.compiler.klox.lang.TokenType
 
-internal fun List<Stmt>.interpret() = try {
-    for (stmt in this) {
-        stmt.execute()
+private data class InterpreterContext(var environment: Environment)
+
+internal fun List<Stmt>.interpret(globalEnv: Environment) = try {
+    with(InterpreterContext(globalEnv)) {
+        for (stmt in this@interpret) {
+            stmt.execute()
+        }
     }
 } catch (e: RuntimeError) {
     LErr.runtimeError(e)
 }
 
+context(ctx: InterpreterContext)
 private fun Stmt.execute() = when (this) {
     is Stmt.Expression -> this.expression.value()
     is Stmt.Print -> println(this.expression.value().stringify())
+    is Stmt.Var -> {
+        val value = initializer?.value()
+        ctx.environment.define(name.lexeme, value)
+    }
+    is Stmt.Block -> statements.executeBlock(Environment(enclosing = ctx.environment))
 }
 
+context(ctx: InterpreterContext)
+private fun List<Stmt>.executeBlock(scopedEnvironment: Environment) {
+    val previous = ctx.environment // 保存旧环境
+    try {
+        ctx.environment = scopedEnvironment // 进入新作用域
+        for (statement in this) {
+            statement.execute() // 在新环境中执行
+        }
+    } finally {
+        ctx.environment = previous // 保证恢复旧环境
+    }
+}
+
+context(ctx: InterpreterContext)
 private fun Expr.value(): Any? = when (this) {
     is Expr.Literal -> value
     is Expr.Grouping -> expression.value()
     is Expr.Unary -> evaluate()
     is Expr.Binary -> evaluate()
+    is Expr.Assign -> {
+        val calculatedValue = value.value()
+        ctx.environment.assign(name, calculatedValue)
+        calculatedValue
+    }
+    is Expr.Variable -> ctx.environment.get(name)
 }
 
+context(ctx: InterpreterContext)
 private fun Expr.Unary.evaluate(): Any? = when (operator.type) {
     TokenType.BANG -> !isTruthy(right.value())
     TokenType.MINUS -> {
         val rightValue = right.value()
-        loxRequire(rightValue is Double, operator) {"Operands must be numbers."}
+        loxRequire(rightValue is Double, operator) { "Operands must be numbers." }
         -rightValue
     }
+
     else -> null
 }
 
-
+context(ctx: InterpreterContext)
 private fun Expr.Binary.evaluate(): Any? = when (this.operator.type) {
     // --- 算术运算 ---
     TokenType.MINUS, TokenType.STAR, TokenType.SLASH ->
@@ -57,7 +89,7 @@ private fun Expr.Binary.evaluate(): Any? = when (this.operator.type) {
 }
 
 private fun evalNormalArithmetic(token: Token, leftValue: Any?, rightValue: Any?): Double? {
-    loxRequire(leftValue is Double && rightValue is Double, token) {"Operands must be numbers."}
+    loxRequire(leftValue is Double && rightValue is Double, token) { "Operands must be numbers." }
 
     return when (token.type) {
         TokenType.MINUS -> leftValue - rightValue
@@ -78,7 +110,7 @@ private fun evalPlus(token: Token, leftValue: Any?, rightValue: Any?): Any = whe
 }
 
 private fun evalCompare(token: Token, leftValue: Any?, rightValue: Any?): Boolean? {
-    loxRequire(leftValue is Double && rightValue is Double, token) {"Operands must be numbers."}
+    loxRequire(leftValue is Double && rightValue is Double, token) { "Operands must be numbers." }
 
     return when (token.type) {
         TokenType.GREATER -> leftValue > rightValue

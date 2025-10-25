@@ -16,10 +16,12 @@ fun main(args: Array<String>) {
     generate(
         "$outputDir/Expr.kt", "Expr",
         listOf(
+            "Assign   : Token name, Expr value",
             "Binary   : Expr left, Token operator, Expr right",
             "Grouping : Expr expression",
             "Literal  : Any? value",
-            "Unary    : Token operator, Expr right"
+            "Unary    : Token operator, Expr right",
+            "Variable : Token name",
         )
     )
 
@@ -27,8 +29,10 @@ fun main(args: Array<String>) {
     generate(
         "$outputDir/Stmt.kt", "Stmt",
         listOf(
+            "Block      : List<Stmt> statements",
             "Expression : Expr expression",
-            "Print      : Expr expression"
+            "Print      : Expr expression",
+            "Var        : Token name, Expr? initializer",
         )
     )
 }
@@ -54,7 +58,7 @@ private fun generate(path: String, baseName: String, types: List<String>) {
         |}
     """.trimMargin()
 
-    File(path).writeText(content, Charsets.UTF_8);
+    File(path).writeText(content, Charsets.UTF_8)
 }
 
 /**

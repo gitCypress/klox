@@ -50,6 +50,7 @@
                 <configuration>
                     <args>
                         <arg>-Xenable-builder-inference</arg>
+                        <arg>-Xcontext-parameters</arg>
                         <arg>-opt-in=kotlin.contracts.ExperimentalContracts</arg>
                     </args>
                 </configuration>
