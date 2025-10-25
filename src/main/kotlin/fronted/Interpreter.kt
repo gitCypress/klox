@@ -2,9 +2,9 @@ package exp.compiler.klox.fronted
 
 import exp.compiler.klox.common.LErr
 import exp.compiler.klox.common.RuntimeError
-import exp.compiler.klox.lang.Expr
 import exp.compiler.klox.lang.Token
 import exp.compiler.klox.lang.TokenType
+import exp.compiler.klox.lang.Expr
 
 internal fun Expr.interpret(): Any? = try {
     when (this) {

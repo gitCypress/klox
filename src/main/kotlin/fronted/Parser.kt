@@ -15,9 +15,9 @@ package exp.compiler.klox.fronted
 
 import exp.compiler.klox.common.LErr
 import exp.compiler.klox.common.ParseError
-import exp.compiler.klox.lang.Expr
 import exp.compiler.klox.lang.Token
 import exp.compiler.klox.lang.TokenType
+import exp.compiler.klox.lang.Expr
 
 internal fun List<Token>.parse(): Expr? = try {
     ParserState(this).expression()

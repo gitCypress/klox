@@ -10,14 +10,12 @@ fun main(args: Array<String>) {
         println("Usage: generate_ast <output directory>")
         exitProcess(64)
     }
-
     val outputDir: String = args[0]
-    val baseName = "Expr"
 
-    val path = "$outputDir/$baseName.kt"
-
-    val content = defineAst(
-        baseName, listOf(
+    // Expr.kt
+    generate(
+        "$outputDir/Expr.kt", "Expr",
+        listOf(
             "Binary   : Expr left, Token operator, Expr right",
             "Grouping : Expr expression",
             "Literal  : Any? value",
@@ -25,21 +23,28 @@ fun main(args: Array<String>) {
         )
     )
 
-    File(path).writeText(content, Charsets.UTF_8)
+    // Stmt.kt
+    generate(
+        "$outputDir/Stmt.kt", "Stmt",
+        listOf(
+            "Expression : Expr expression",
+            "Print      : Expr expression"
+        )
+    )
 }
 
 /**
  * 组装整个 AST 文件，现在不再包含 Visitor 相关代码。
  */
-private fun defineAst(baseName: String, types: List<String>): String {
+private fun generate(path: String, baseName: String, types: List<String>) {
     val typeClasses = types.joinToString("\n\n") { type ->
         val (className, fields) = type
             .split(':')
             .map(String::trim)
-        defineType(baseName, className, fields)
+        genType(baseName, className, fields)
     }
 
-    return """
+    val content = """
         |package exp.compiler.klox.lang
         |
         |// Auto-generated code, DO NOT modify directly.
@@ -48,12 +53,14 @@ private fun defineAst(baseName: String, types: List<String>): String {
         |${typeClasses.prependIndent("    ")}
         |}
     """.trimMargin()
+
+    File(path).writeText(content, Charsets.UTF_8);
 }
 
 /**
  * 为单个 AST 类型生成一个干净的 data class。
  */
-private fun defineType(
+private fun genType(
     baseName: String, className: String, fieldList: String
 ): String {
     val kotlinFields = fieldList

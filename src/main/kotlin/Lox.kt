@@ -42,7 +42,7 @@ private fun runFile(path: String) {
 }
 
 private fun run(source: String) = source
-    .scanTokens().also { tprintln("[main::run/scanTokens] $it") }
+    .scan().also { tprintln("[main::run/scanTokens] $it") }
     .parse().also { tprintln("[main::run/parse(toAST)] ${it?.toAST()}") }
     ?.interpret()
     .also { println(it.stringify()) }

@@ -6,8 +6,8 @@ import exp.compiler.klox.common.isIdentifierStart
 import exp.compiler.klox.lang.Token
 import exp.compiler.klox.lang.TokenType
 
-internal fun String.scanTokens(): List<Token> = sequence {
-    val state = ScannerState(this@scanTokens)
+internal fun String.scan(): List<Token> = sequence {
+    val state = ScannerState(this@scan)
     while (true) {
         val token = state.scanToken() ?: continue
         yield(token)
