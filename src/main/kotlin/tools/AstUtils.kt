@@ -10,8 +10,7 @@ internal fun Expr.toRPN(): String =
         is Expr.Grouping -> expression.toRPN()
         is Expr.Literal -> value?.toString() ?: "nil"
         is Expr.Unary -> "${operator.lexeme}${right.toRPN()}"
-        is Expr.Variable -> TODO()
-        is Expr.Assign -> TODO()
+        else -> "unsupported"
     }
 
 internal fun Expr.toAST(): String {
@@ -23,8 +22,7 @@ internal fun Expr.toAST(): String {
         is Expr.Grouping -> parenthesize("group", expression)
         is Expr.Literal -> value?.toString() ?: "nil"
         is Expr.Unary -> parenthesize(operator.lexeme, right)
-        is Expr.Variable -> TODO()
-        is Expr.Assign -> TODO()
+        else -> "unsupported"
     }
 }
 

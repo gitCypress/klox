@@ -1,0 +1,17 @@
+print "九九乘法表 \n";
+
+for (var a = 1; a < 10; a = a + 1) {
+    for (var b = 1; b <= a; b = b + 1) {
+        var mul = a * b;
+
+        print a;
+        print " * ";
+        print b;
+        print " = ";
+        print mul;
+
+        if (mul < 10) print "  ";
+        else print " ";
+    }
+    print "\n";
+}

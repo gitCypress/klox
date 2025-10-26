@@ -6,11 +6,16 @@
  *
  *      declaration    → varDecl | statement ;
  *      varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
- *      statement      → exprStmt | printStmt | block;
+ *      statement      → exprStmt | forStmt | ifStmt | printStmt | whileStmt | block;
+ *      forStmt        → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
  *      block          → "{" declaration* "}" ;
+ *      ifStmt         → "if" "(" expression ")" statement ( "else" statement )? ;
  *      printStmt      → "print" expression ";" ;
+ *      whileStmt      → "while" "(" expression ")" statement ;
  *      expression     → assignment ;
- *      assignment     → IDENTIFIER "=" assignment | equality ;
+ *      assignment     → IDENTIFIER "=" assignment | logic_or ;
+ *      logic_or       → logic_and ( "or" logic_and )* ;
+ *      logic_and      → equality ( "and" equality )* ;
  *      equality       → comparison ( ( "!=" | "==" ) comparison )*
  *      comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )*
  *      term           → factor ( ( "-" | "+" ) factor )*
@@ -69,12 +74,83 @@ private fun ParserState.varDeclaration(): Stmt {
 }
 
 /**
- * statement      → exprStmt | printStmt | block;
+ * statement      → exprStmt | forSmt | ifStmt | printStmt | whileStmt | block;
  */
-private fun ParserState.statement(): Stmt =
-    if (match(TokenType.PRINT)) printStatement()
-    else if (match(TokenType.LEFT_BRACE)) Stmt.Block(block())
-    else expressionStatement()
+private fun ParserState.statement(): Stmt = when {
+    match(TokenType.PRINT) -> printStatement()
+    match(TokenType.IF) -> ifStatement()
+    match(TokenType.WHILE) -> whileStatement()
+    match(TokenType.FOR) -> forStatement()
+    match(TokenType.LEFT_BRACE) -> Stmt.Block(block())
+    else -> expressionStatement()
+}
+
+/**
+ * forStmt        → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
+ */
+private fun ParserState.forStatement(): Stmt {
+    consumeOrErr(TokenType.LEFT_PAREN, "Expect '(' after 'for'.")
+
+    val initializer =  when {
+        match(TokenType.SEMICOLON) -> null
+        match(TokenType.VAR) -> varDeclaration()
+        else -> expressionStatement()
+    }
+
+    val condition = if (!check(TokenType.SEMICOLON)) expression() else null
+    consumeOrErr(TokenType.SEMICOLON, "Expect ';' after for condition.")
+
+    val increment = if (!check(TokenType.RIGHT_PAREN)) expression() else null
+    consumeOrErr(TokenType.RIGHT_PAREN, "Expect ')' after for clause.")
+
+    /**
+     * {
+     *     initializer;
+     *     while (condition) {
+     *         body;
+     *         increment;
+     *     }
+     * }
+     */
+    return Stmt.Block(listOfNotNull(
+        initializer,
+        Stmt.While(
+            condition ?: Expr.Literal(true),
+            Stmt.Block(listOfNotNull(
+                statement(),
+                increment?.let { Stmt.Expression(it) }
+            ))
+        )
+    ))
+}
+
+/**
+ * whileStmt      → "while" "(" expression ")" statement ;
+ */
+private fun ParserState.whileStatement(): Stmt {
+    consumeOrErr(TokenType.LEFT_PAREN, "Expect '(' after 'while'.")
+    val condition = expression()
+    consumeOrErr(TokenType.RIGHT_PAREN, "Expect ')' after while condition.")
+
+    val body = statement()
+
+    return Stmt.While(condition, body)
+}
+
+/**
+ * ifStmt         → "if" "(" expression ")" statement ( "else" statement )? ;
+ */
+private fun ParserState.ifStatement(): Stmt {
+    consumeOrErr(TokenType.LEFT_PAREN, "Expect '(' after 'if'.")
+    val condition = expression()
+    consumeOrErr(TokenType.RIGHT_PAREN, "Expect ')' after if condition.")
+
+    val thenBranch = statement()
+
+    val elseBranch = if(match(TokenType.ELSE)) statement() else null
+
+    return Stmt.If(condition, thenBranch, elseBranch)
+}
 
 /**
  * block          → "{" declaration* "}" ;
@@ -111,10 +187,10 @@ private fun ParserState.expressionStatement(): Stmt.Expression {
 private fun ParserState.expression(): Expr = assignment()
 
 /**
- * assignment     → IDENTIFIER "=" assignment | equality ;
+ * assignment     → IDENTIFIER "=" assignment | logic_or ;
  */
 private fun ParserState.assignment(): Expr {
-    val expr = equality()
+    val expr = or()
 
     if (match(TokenType.EQUAL)) {
         val equals = previous()
@@ -130,6 +206,21 @@ private fun ParserState.assignment(): Expr {
 
     return expr
 }
+
+/**
+ * logic_or       → logic_and ( "or" logic_and )* ;
+ */
+private fun ParserState.or() : Expr = parseLeftAssociative(
+    TokenType.OR
+) { and() }
+
+/**
+ * logic_and      → equality ( "and" equality )* ;
+ */
+
+private fun ParserState.and() : Expr  = parseLeftAssociative(
+    TokenType.AND
+) { equality() }
 
 /**
  * equality       → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -247,7 +338,7 @@ private fun ParserState.parseLeftAssociative(vararg operators: TokenType, rule: 
  * 错误处理
  */
 
-private fun ParserState.parseError(token: Token, message: String): ParseError {
+private fun parseError(token: Token, message: String): ParseError {
     LErr.error(token, message)
     return ParseError()
 }

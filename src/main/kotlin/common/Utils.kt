@@ -7,6 +7,11 @@ import kotlin.contracts.contract
 internal fun Any?.stringify(): String = when (this) {
     null -> "nil"
     is Double -> this.toString().removeSuffix(".0")
+    /**
+     * Kotlin 处理运行时输入时会自动把 \n 变成 \\n 导致正常输入时转义字符失效
+     * 这里手动替换相关转义字符内容即可解决问题
+     */
+    is String -> this.replace("\\n", "\n")
     else -> this.toString()
 }
 

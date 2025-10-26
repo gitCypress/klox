@@ -22,14 +22,30 @@ internal fun List<Stmt>.interpret(globalEnv: Environment) = try {
 }
 
 context(ctx: InterpreterContext)
-private fun Stmt.execute() = when (this) {
-    is Stmt.Expression -> this.expression.value()
-    is Stmt.Print -> println(this.expression.value().stringify())
-    is Stmt.Var -> {
-        val value = initializer?.value()
-        ctx.environment.define(name.lexeme, value)
+private fun Stmt.execute() {
+    when (this) {
+        is Stmt.Expression ->
+            this.expression.value()
+
+        is Stmt.Print ->
+            print(this.expression.value().stringify())
+
+        is Stmt.Var ->
+            ctx.environment.define(name.lexeme, initializer?.value())
+
+
+        is Stmt.Block ->
+            statements.executeBlock(Environment(enclosing = ctx.environment))
+
+        is Stmt.If -> when {
+            isTruthy(condition.value()) -> thenBranch.execute()
+            elseBranch != null -> elseBranch.execute()
+            else -> {}
+        }
+
+        is Stmt.While ->
+            while (isTruthy(condition.value())) body.execute()
     }
-    is Stmt.Block -> statements.executeBlock(Environment(enclosing = ctx.environment))
 }
 
 context(ctx: InterpreterContext)
@@ -51,12 +67,9 @@ private fun Expr.value(): Any? = when (this) {
     is Expr.Grouping -> expression.value()
     is Expr.Unary -> evaluate()
     is Expr.Binary -> evaluate()
-    is Expr.Assign -> {
-        val calculatedValue = value.value()
-        ctx.environment.assign(name, calculatedValue)
-        calculatedValue
-    }
+    is Expr.Assign -> evaluate()
     is Expr.Variable -> ctx.environment.get(name)
+    is Expr.Logical -> evaluate()
 }
 
 context(ctx: InterpreterContext)
@@ -87,6 +100,27 @@ private fun Expr.Binary.evaluate(): Any? = when (this.operator.type) {
     TokenType.EQUAL_EQUAL -> isEqual(left.value(), right.value())
     else -> null
 }
+
+context(ctx: InterpreterContext)
+private fun Expr.Assign.evaluate(): Any? {
+    val calculatedValue = value.value()
+    ctx.environment.assign(name, calculatedValue)
+    return calculatedValue
+}
+
+context(ctx: InterpreterContext)
+private fun Expr.Logical.evaluate(): Any? {
+    val leftValue = left.value()
+
+    if (logicOp.type == TokenType.OR) {
+        if (isTruthy(leftValue)) return leftValue
+    } else { // AND
+        if (!isTruthy(leftValue)) return leftValue
+    }
+
+    return right.value()
+}
+
 
 private fun evalNormalArithmetic(token: Token, leftValue: Any?, rightValue: Any?): Double? {
     loxRequire(leftValue is Double && rightValue is Double, token) { "Operands must be numbers." }

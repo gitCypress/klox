@@ -18,8 +18,9 @@ class Environment (
         else -> throw RuntimeError(name.line, "Undefined variable '${name.lexeme}'.")
     }
 
-    internal fun assign(name: Token, value: Any?) = when {
+    internal fun assign(name: Token, value: Any?) : Unit = when {
         values.contains(name.lexeme) -> values[name.lexeme] = value
+        enclosing != null -> enclosing.assign(name, value)
         else -> throw RuntimeError(name.line, "Undefined variable '${name.lexeme}'.")
     }
 }
