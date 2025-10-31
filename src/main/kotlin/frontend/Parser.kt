@@ -20,7 +20,9 @@
  *      comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )*
  *      term           → factor ( ( "-" | "+" ) factor )*
  *      factor         → unary ( ( "/" | "*" ) unary )*
- *      unary          → ( "!" | "-" | "+") unary | primary
+ *      unary          → ( "!" | "-" ) unary | call ;
+ *      call           → primary ( "(" arguments? ")" )* ;
+ *      arguments      → expression ( "," expression )* ;
  *      primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER
  */
 
@@ -91,7 +93,7 @@ private fun ParserState.statement(): Stmt = when {
 private fun ParserState.forStatement(): Stmt {
     consumeOrErr(TokenType.LEFT_PAREN, "Expect '(' after 'for'.")
 
-    val initializer =  when {
+    val initializer = when {
         match(TokenType.SEMICOLON) -> null
         match(TokenType.VAR) -> varDeclaration()
         else -> expressionStatement()
@@ -112,16 +114,18 @@ private fun ParserState.forStatement(): Stmt {
      *     }
      * }
      */
-    return Stmt.Block(listOfNotNull(
-        initializer,
-        Stmt.While(
-            condition ?: Expr.Literal(true),
-            Stmt.Block(listOfNotNull(
-                statement(),
-                increment?.let { Stmt.Expression(it) }
-            ))
-        )
-    ))
+    return Stmt.Block(
+        listOfNotNull(
+            initializer,
+            Stmt.While(
+                condition ?: Expr.Literal(true),
+                Stmt.Block(
+                    listOfNotNull(
+                        statement(),
+                        increment?.let { Stmt.Expression(it) }
+                    ))
+            )
+        ))
 }
 
 /**
@@ -147,7 +151,7 @@ private fun ParserState.ifStatement(): Stmt {
 
     val thenBranch = statement()
 
-    val elseBranch = if(match(TokenType.ELSE)) statement() else null
+    val elseBranch = if (match(TokenType.ELSE)) statement() else null
 
     return Stmt.If(condition, thenBranch, elseBranch)
 }
@@ -210,7 +214,7 @@ private fun ParserState.assignment(): Expr {
 /**
  * logic_or       → logic_and ( "or" logic_and )* ;
  */
-private fun ParserState.or() : Expr = parseLeftAssociative(
+private fun ParserState.or(): Expr = parseLeftAssociative(
     TokenType.OR
 ) { and() }
 
@@ -218,7 +222,7 @@ private fun ParserState.or() : Expr = parseLeftAssociative(
  * logic_and      → equality ( "and" equality )* ;
  */
 
-private fun ParserState.and() : Expr  = parseLeftAssociative(
+private fun ParserState.and(): Expr = parseLeftAssociative(
     TokenType.AND
 ) { equality() }
 
@@ -256,20 +260,53 @@ private fun ParserState.factor(): Expr = parseLeftAssociative(
 ) { unary() }
 
 /**
- * unary          → ( "!" | "-" | "+") unary | primary ;
+ * unary          → ( "!" | "-" ) unary | call ;
  */
 private fun ParserState.unary(): Expr {
     if (match(
             TokenType.BANG,
             TokenType.MINUS,
-            TokenType.PLUS,
         )
     ) {
         val operator = previous()
         val right = unary()
         return Expr.Unary(operator, right)
     }
-    return primary()
+    return call()
+}
+
+/**
+ * call           → primary ( "(" arguments? ")" )* ;
+ */
+private fun ParserState.call(): Expr =
+    generateSequence(primary()) { currentExpr ->
+        if (match(TokenType.LEFT_PAREN)) {
+            currentExpr.finishCall()
+        } else null
+    }.last()
+
+/**
+ * arguments      → expression ( "," expression )* ;
+ */
+context(state: ParserState)
+private fun Expr.finishCall(): Expr {
+    val args: List<Expr> =
+        if (state.check(TokenType.RIGHT_PAREN)) emptyList()
+        else state.arguments()
+
+    val paren = state.consumeOrErr(TokenType.RIGHT_PAREN, "Expect ')' after arguments.")
+
+    return Expr.Call(this, paren, args)
+}
+
+private tailrec fun ParserState.arguments(head: List<Expr> = emptyList()): List<Expr> {
+    // 限制参数不超过 255 个（放这里是为了快速错误）
+    if (head.size >= 255) LErr.error(peek(), "Can't have more than 255 arguments.")
+
+    val currentArgs = head + expression()
+
+    return if (match(TokenType.COMMA)) arguments(currentArgs)
+    else currentArgs
 }
 
 /**
@@ -334,9 +371,7 @@ private fun ParserState.parseLeftAssociative(vararg operators: TokenType, rule: 
     return expr
 }
 
-/**
- * 错误处理
- */
+// 错误处理
 
 private fun parseError(token: Token, message: String): ParseError {
     LErr.error(token, message)

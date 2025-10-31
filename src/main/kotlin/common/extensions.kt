@@ -1,7 +1,5 @@
 package exp.compiler.klox.common
 
-import exp.compiler.klox.lang.Token
-
 // std
 internal fun eprintln(message: Any?) {
     System.err.println(message)

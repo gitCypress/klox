@@ -49,10 +49,5 @@ private fun runFile(path: String, globalEnv: Environment) {
 
 private fun run(source: String, globalEnv: Environment) = source
     .scan()
-//    .also { tprintln("[main::run/scanTokens] $it") }
     .parse()
-//    .also { tprintln("[main::run/parse(toAST)] ${it?.toAST()}") }
     .interpret(globalEnv)
-
-
-

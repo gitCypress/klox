@@ -70,7 +70,24 @@ private fun Expr.value(): Any? = when (this) {
     is Expr.Assign -> evaluate()
     is Expr.Variable -> ctx.environment.get(name)
     is Expr.Logical -> evaluate()
+    is Expr.Call -> evaluate()
 }
+
+context(ctx: InterpreterContext)
+private fun Expr.Call.evaluate() = callee.value().run {
+    when (this) {
+        is LCallable -> {
+            if (arguments.size != arity()) throw RuntimeError(
+                paren.line,
+                "Expected ${arity()} arguments but got ${arguments.size} ."
+            )
+            call(this, arguments.map { it.value() })
+        }
+
+        else -> throw RuntimeError(paren.line, "Can only call functions and classes.")
+    }
+}
+
 
 context(ctx: InterpreterContext)
 private fun Expr.Unary.evaluate(): Any? = when (operator.type) {
