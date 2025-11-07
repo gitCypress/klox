@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Lox Run : test.lox" type="JetRunConfigurationType">
+  <configuration default="false" name="Lox Run File : test.lox" type="JetRunConfigurationType">
     <option name="MAIN_CLASS_NAME" value="exp.compiler.klox.LoxKt" />
-    <module name="klox" />
-    <option name="PROGRAM_PARAMETERS" value="&quot;lox_script/test/test.lox&quot;" />
+    <module name="klox.main" />
+    <option name="PROGRAM_PARAMETERS" value="lox_script/test.lox" />
     <shortenClasspath name="NONE" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
     <method v="2">

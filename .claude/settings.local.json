@@ -7,7 +7,9 @@
       "mcp__ide__getDiagnostics",
       "WebSearch",
       "WebFetch(domain:blog.jetbrains.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(gradlew.bat:*)",
+      "Bash(./gradlew:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Lox CLI" type="JetRunConfigurationType">
+  <configuration default="false" name="LoxKt CLI" type="JetRunConfigurationType">
     <option name="MAIN_CLASS_NAME" value="exp.compiler.klox.LoxKt" />
-    <module name="klox" />
+    <module name="klox.main" />
     <shortenClasspath name="NONE" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
     <method v="2">
