@@ -1,10 +1,12 @@
 package exp.compiler.klox
 
-import exp.compiler.klox.common.*
+import exp.compiler.klox.common.LConfig
+import exp.compiler.klox.common.LErr
 import exp.compiler.klox.frontend.parse
+import exp.compiler.klox.frontend.resolve
 import exp.compiler.klox.frontend.scan
 import exp.compiler.klox.runtime.Environment
-import exp.compiler.klox.runtime.InterpreterContext
+import exp.compiler.klox.runtime.InterpreterState
 import exp.compiler.klox.runtime.LCallable
 import exp.compiler.klox.runtime.interpret
 import java.io.File
@@ -22,7 +24,7 @@ fun main(args: Array<String>) {
         define("clock", object : LCallable {
             override val arity: Int = 0
 
-            context(ctx: InterpreterContext)
+            context(ctx: InterpreterState)
             override fun call(arguments: List<Any?>): Long = System.currentTimeMillis().milliseconds.inWholeSeconds
 
             override fun toString(): String = "<native fn clock>"
@@ -44,22 +46,25 @@ private fun runPrompt(globalEnv: Environment) {
     generateSequence {
         print("> ")
         readlnOrNull()
-    }.forEach { line ->
-        run(line, globalEnv)
-    }
+    }.forEach { it.run(globalEnv) }
 
     LErr.resetError()
 }
 
 private fun runFile(path: String, globalEnv: Environment) {
-    val sourceCode = File(path).readText(Charsets.UTF_8)
-    run(sourceCode, globalEnv)
+    File(path)
+        .readText(Charsets.UTF_8)
+        .run(globalEnv)
 
     if (LErr.hadError) exitProcess(65)
     if (LErr.hadRuntimeError) exitProcess(70)
 }
 
-private fun run(source: String, globalEnv: Environment) = source
-    .scan()
-    .parse()
-    .interpret(globalEnv)
+
+private fun String.run(globalEnv: Environment) =
+    scan().parse().apply {
+        with(InterpreterState(globalEnv, resolve())) {
+            if (LErr.hadError) return@apply
+            interpret()
+        }
+    }

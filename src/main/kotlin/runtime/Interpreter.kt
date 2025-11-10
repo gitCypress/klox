@@ -6,28 +6,32 @@ import exp.compiler.klox.common.loxRequire
 import exp.compiler.klox.common.stringify
 import exp.compiler.klox.lang.*
 
-internal data class InterpreterContext(var environment: Environment)
+internal data class InterpreterState(
+    val globalEnv: Environment,
+    val locals: MutableMap<Expr, Int>,
+) {
+    var currentEnv: Environment = globalEnv
+}
 
-internal fun List<Stmt>.interpret(globalEnv: Environment) = try {
-    with(InterpreterContext(globalEnv)) {
-        for (stmt in this@interpret) {
-            stmt.execute()
-        }
+context(ctx: InterpreterState)
+internal fun List<Stmt>.interpret() = try {
+    for (stmt in this) {
+        stmt.execute()
     }
 } catch (e: RuntimeError) {
     LErr.runtimeError(e)
 }
 
-context(ctx: InterpreterContext)
+context(ctx: InterpreterState)
 private fun Stmt.execute() {
     when (this) {
         is Stmt.Expression -> this.expression.value()
 
         is Stmt.Print -> print(this.expression.value().stringify())
 
-        is Stmt.Var -> ctx.environment.define(name.lexeme, initializer?.value())
+        is Stmt.Var -> ctx.currentEnv.define(name.lexeme, initializer?.value())
 
-        is Stmt.Block -> statements.executes(Environment(enclosing = ctx.environment))
+        is Stmt.Block -> statements.executes(Environment(enclosing = ctx.currentEnv))
 
         is Stmt.If -> when {
             isTruthy(condition.value()) -> thenBranch.execute()
@@ -37,41 +41,51 @@ private fun Stmt.execute() {
 
         is Stmt.While -> while (isTruthy(condition.value())) body.execute()
 
-        is Stmt.Function -> ctx.environment.define(
+        is Stmt.Function -> ctx.currentEnv.define(
             name.lexeme,
-            LFunction(this, ctx.environment)
+            LFunction(this, ctx.currentEnv)
         )
 
         is Stmt.Return -> throw LReturn(value?.value())
     }
 }
 
-context(ctx: InterpreterContext)
+context(ctx: InterpreterState)
 internal fun List<Stmt>.executes(scopedEnvironment: Environment) {
-    val previous = ctx.environment // 保存旧环境
+    val previous = ctx.currentEnv // 保存旧环境
     try {
-        ctx.environment = scopedEnvironment // 进入新作用域
+        ctx.currentEnv = scopedEnvironment // 进入新作用域
         for (statement in this) {
             statement.execute() // 在新环境中执行
         }
     } finally {
-        ctx.environment = previous // 保证恢复旧环境
+        ctx.currentEnv = previous // 保证恢复旧环境
     }
 }
 
-context(ctx: InterpreterContext)
+//context(ctx: InterpreterState)
+//internal fun Expr.resolve(depth: Int) = ctx.locals.put(this, depth)
+
+context(ctx: InterpreterState)
 private fun Expr.value(): Any? = when (this) {
     is Expr.Literal -> value
     is Expr.Grouping -> expression.value()
     is Expr.Unary -> evaluate()
     is Expr.Binary -> evaluate()
     is Expr.Assign -> evaluate()
-    is Expr.Variable -> ctx.environment.get(name)
+    is Expr.Variable -> evaluate()
     is Expr.Logical -> evaluate()
     is Expr.Call -> evaluate()
 }
 
-context(ctx: InterpreterContext)
+context(ctx: InterpreterState)
+private fun Expr.Variable.evaluate() = ctx
+    .locals[this]
+    ?.let { ctx.currentEnv.getAt(it, name.lexeme) }
+    ?: ctx.globalEnv[name]
+
+
+context(ctx: InterpreterState)
 private fun Expr.Call.evaluate() = callee.value().run {
     when (this) {
         is LCallable -> {
@@ -87,7 +101,7 @@ private fun Expr.Call.evaluate() = callee.value().run {
 }
 
 
-context(ctx: InterpreterContext)
+context(ctx: InterpreterState)
 private fun Expr.Unary.evaluate(): Any? = when (operator.type) {
     TokenType.BANG -> !isTruthy(right.value())
     TokenType.MINUS -> {
@@ -99,7 +113,7 @@ private fun Expr.Unary.evaluate(): Any? = when (operator.type) {
     else -> null
 }
 
-context(ctx: InterpreterContext)
+context(ctx: InterpreterState)
 private fun Expr.Binary.evaluate(): Any? = when (this.operator.type) {
     // --- 算术运算 ---
     TokenType.MINUS, TokenType.STAR, TokenType.SLASH ->
@@ -116,14 +130,18 @@ private fun Expr.Binary.evaluate(): Any? = when (this.operator.type) {
     else -> null
 }
 
-context(ctx: InterpreterContext)
+context(ctx: InterpreterState)
 private fun Expr.Assign.evaluate(): Any? {
-    val calculatedValue = value.value()
-    ctx.environment.assign(name, calculatedValue)
+    val calculatedValue = value.value()  // 这里不能联接声明和赋值，value()的执行是有副作用的
+
+    ctx.locals[this]
+        ?.let { ctx.currentEnv.assignAt(it, name, value) }
+        ?: ctx.globalEnv.assign(name, value)
+
     return calculatedValue
 }
 
-context(ctx: InterpreterContext)
+context(ctx: InterpreterState)
 private fun Expr.Logical.evaluate(): Any? {
     val leftValue = left.value()
 
