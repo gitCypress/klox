@@ -3,7 +3,7 @@ package exp.compiler.klox.common
 import exp.compiler.klox.lang.Token
 import exp.compiler.klox.lang.TokenType
 
-internal class RuntimeError(val line: Int, message: String?) : RuntimeException(message)
+internal open class RuntimeError(val line: Int, message: String?) : RuntimeException(message)
 internal class ParseError : RuntimeException()
 
 internal object LErr {

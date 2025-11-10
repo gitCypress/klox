@@ -4,13 +4,17 @@
  * 规则：
  *      program        → declaration* EOF ;
  *
- *      declaration    → varDecl | statement ;
+ *      declaration    → funDecl | varDecl | statement ;
+ *      funDecl        → "fun" function ;
+ *      function       → IDENTIFIER "(" parameters? ")" block ;
+ *      parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
  *      varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
- *      statement      → exprStmt | forStmt | ifStmt | printStmt | whileStmt | block;
+ *      statement      → exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block;
  *      forStmt        → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
  *      block          → "{" declaration* "}" ;
  *      ifStmt         → "if" "(" expression ")" statement ( "else" statement )? ;
  *      printStmt      → "print" expression ";" ;
+ *      returnStmt     → "return" expression? ";" ;
  *      whileStmt      → "while" "(" expression ")" statement ;
  *      expression     → assignment ;
  *      assignment     → IDENTIFIER "=" assignment | logic_or ;
@@ -38,7 +42,6 @@ import exp.compiler.klox.lang.TokenType
 internal fun List<Token>.parse(): List<Stmt> =
     ParserState(this).run {
         buildList {
-            // TODO: 这里符合 synchronize() 函数的设计思路吗
             while (!isAtEnd()) declaration()?.let { add(it) }
         }
     }
@@ -50,21 +53,52 @@ private class ParserState(
 }
 
 /**
- * declaration    → varDecl | statement ;
+ * declaration    → funDecl | varDecl | statement ;
  */
 private fun ParserState.declaration(): Stmt? = try {
-    if (match(TokenType.VAR)) varDeclaration()
-    else statement()
+    when {
+        match(TokenType.VAR) -> varDeclaration()
+        match(TokenType.FUN) -> function("function")
+        else -> statement()
+    }
 } catch (_: ParseError) {
     synchronize()
     null
 }
 
 /**
+ * funDecl        → "fun" function ;
+ * function       → IDENTIFIER "(" parameters? ")" block ;
+ */
+private fun ParserState.function(kind: String): Stmt {
+    val funName = consumeOrErr(TokenType.IDENTIFIER, "Expect $kind name.")
+
+    consumeOrErr(TokenType.LEFT_PAREN, "Expect '(' after $kind name.")
+    val params =
+        if (check(TokenType.RIGHT_PAREN)) emptyList()
+        else parameters()
+    consumeOrErr(TokenType.RIGHT_PAREN, "Expect ')' after parameters.")
+
+    consumeOrErr(TokenType.LEFT_BRACE, "Expect '{' after $kind name.")
+    val logic = block()
+
+    return Stmt.Function(funName, params, logic)
+}
+
+/**
+ * parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
+ */
+private fun ParserState.parameters(): List<Token> =
+    generateSequence(consumeOrErr(TokenType.IDENTIFIER, "Expect function parameters.")) {
+        if (!match(TokenType.COMMA)) null
+        else consumeOrErr(TokenType.IDENTIFIER, "Expect function parameters after ','.")
+    }.toList()
+
+/**
  * varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
  */
 private fun ParserState.varDeclaration(): Stmt {
-    val name = consumeOrErr(TokenType.IDENTIFIER, "Expect variable name.")
+    val name = consumeOrErr(TokenType.IDENTIFIER, "Illegal first parameter(unexpected).")
 
     val initializer: Expr? =
         if (match(TokenType.EQUAL)) {
@@ -83,8 +117,22 @@ private fun ParserState.statement(): Stmt = when {
     match(TokenType.IF) -> ifStatement()
     match(TokenType.WHILE) -> whileStatement()
     match(TokenType.FOR) -> forStatement()
+    match(TokenType.RETURN) -> returnStatement()
     match(TokenType.LEFT_BRACE) -> Stmt.Block(block())
     else -> expressionStatement()
+}
+
+/**
+ * returnStmt     → "return" expression? ";" ;
+ */
+
+private fun ParserState.returnStatement(): Stmt {
+    val keyword = previous()
+
+    val value = if (!check(TokenType.SEMICOLON)) expression() else null
+    consumeOrErr(TokenType.SEMICOLON, "Expect ';' after return value.")
+
+    return Stmt.Return(keyword, value)
 }
 
 /**
@@ -342,24 +390,25 @@ private fun ParserState.match(vararg types: TokenType): Boolean {
     return false
 }
 
+private fun ParserState.peek(): Token = tokens[current]
+
+private fun ParserState.previous(): Token = tokens[current - 1]
+
 private fun ParserState.advance(): Token {
     if (!isAtEnd()) current++
     return previous()
+}
+
+private fun ParserState.consumeOrErr(type: TokenType, message: String): Token {
+    if (check(type)) return advance()
+    throw parseError(peek(), message)
 }
 
 private fun ParserState.check(type: TokenType): Boolean =
     if (isAtEnd()) false
     else peek().type == type
 
-
 private fun ParserState.isAtEnd(): Boolean = peek().type == TokenType.EOF
-private fun ParserState.peek(): Token = tokens[current]
-private fun ParserState.previous(): Token = tokens[current - 1]
-
-private fun ParserState.consumeOrErr(type: TokenType, message: String): Token {
-    if (check(type)) return advance()
-    throw parseError(peek(), message)
-}
 
 private fun ParserState.parseLeftAssociative(vararg operators: TokenType, rule: () -> Expr): Expr {
     var expr: Expr = rule()

@@ -1,6 +1,6 @@
 // GenerateAST.kt (最终“更 Kotlin”的版本)
 
-package exp.compiler.klox.tool
+package exp.compiler.klox.tools
 
 import java.io.File
 import kotlin.system.exitProcess
@@ -33,8 +33,10 @@ fun main(args: Array<String>) {
         listOf(
             "Block      : List<Stmt> statements",
             "Expression : Expr expression",
+            "Function   : Token name, List<Token> params, List<Stmt> body",
             "If         : Expr condition, Stmt thenBranch, Stmt? elseBranch",
             "Print      : Expr expression",
+            "Return     : Token keyword, Expr? value",
             "Var        : Token name, Expr? initializer",
             "While      : Expr condition, Stmt body",
         )

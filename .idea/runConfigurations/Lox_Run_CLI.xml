@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="LoxKt CLI" type="JetRunConfigurationType">
+  <configuration default="false" name="Lox Run CLI" type="JetRunConfigurationType">
     <option name="MAIN_CLASS_NAME" value="exp.compiler.klox.LoxKt" />
     <module name="klox.main" />
     <shortenClasspath name="NONE" />

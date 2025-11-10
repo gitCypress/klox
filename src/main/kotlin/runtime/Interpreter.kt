@@ -4,12 +4,9 @@ import exp.compiler.klox.common.LErr
 import exp.compiler.klox.common.RuntimeError
 import exp.compiler.klox.common.loxRequire
 import exp.compiler.klox.common.stringify
-import exp.compiler.klox.lang.Expr
-import exp.compiler.klox.lang.Stmt
-import exp.compiler.klox.lang.Token
-import exp.compiler.klox.lang.TokenType
+import exp.compiler.klox.lang.*
 
-private data class InterpreterContext(var environment: Environment)
+internal data class InterpreterContext(var environment: Environment)
 
 internal fun List<Stmt>.interpret(globalEnv: Environment) = try {
     with(InterpreterContext(globalEnv)) {
@@ -24,18 +21,13 @@ internal fun List<Stmt>.interpret(globalEnv: Environment) = try {
 context(ctx: InterpreterContext)
 private fun Stmt.execute() {
     when (this) {
-        is Stmt.Expression ->
-            this.expression.value()
+        is Stmt.Expression -> this.expression.value()
 
-        is Stmt.Print ->
-            print(this.expression.value().stringify())
+        is Stmt.Print -> print(this.expression.value().stringify())
 
-        is Stmt.Var ->
-            ctx.environment.define(name.lexeme, initializer?.value())
+        is Stmt.Var -> ctx.environment.define(name.lexeme, initializer?.value())
 
-
-        is Stmt.Block ->
-            statements.executeBlock(Environment(enclosing = ctx.environment))
+        is Stmt.Block -> statements.executes(Environment(enclosing = ctx.environment))
 
         is Stmt.If -> when {
             isTruthy(condition.value()) -> thenBranch.execute()
@@ -43,13 +35,19 @@ private fun Stmt.execute() {
             else -> {}
         }
 
-        is Stmt.While ->
-            while (isTruthy(condition.value())) body.execute()
+        is Stmt.While -> while (isTruthy(condition.value())) body.execute()
+
+        is Stmt.Function -> ctx.environment.define(
+            name.lexeme,
+            LFunction(this, ctx.environment)
+        )
+
+        is Stmt.Return -> throw LReturn(value?.value())
     }
 }
 
 context(ctx: InterpreterContext)
-private fun List<Stmt>.executeBlock(scopedEnvironment: Environment) {
+internal fun List<Stmt>.executes(scopedEnvironment: Environment) {
     val previous = ctx.environment // 保存旧环境
     try {
         ctx.environment = scopedEnvironment // 进入新作用域
@@ -77,11 +75,11 @@ context(ctx: InterpreterContext)
 private fun Expr.Call.evaluate() = callee.value().run {
     when (this) {
         is LCallable -> {
-            if (arguments.size != arity()) throw RuntimeError(
+            if (arguments.size != arity) throw RuntimeError(
                 paren.line,
-                "Expected ${arity()} arguments but got ${arguments.size} ."
+                "Expected $arity arguments but got ${arguments.size} ."
             )
-            call(this, arguments.map { it.value() })
+            call(arguments.map { it.value() })
         }
 
         else -> throw RuntimeError(paren.line, "Can only call functions and classes.")

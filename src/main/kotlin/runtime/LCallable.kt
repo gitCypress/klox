@@ -1,6 +1,8 @@
 package exp.compiler.klox.runtime
 
-interface LCallable {
-    fun arity(): Int
-    fun call(interpreter: Interpreter, arguments: List<Any?>): Any?
+internal interface LCallable {
+    val arity: Int  // 参数数量
+
+    context(ctx: InterpreterContext)
+    fun call(arguments: List<Any?>): Any?
 }

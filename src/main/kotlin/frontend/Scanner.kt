@@ -1,4 +1,4 @@
-package exp.compiler.klox.fronted
+package exp.compiler.klox.frontend
 
 import exp.compiler.klox.common.LErr
 import exp.compiler.klox.common.isIdentifierPart
