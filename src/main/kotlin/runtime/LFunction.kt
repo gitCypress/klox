@@ -9,7 +9,7 @@ internal class LFunction(
 ) : LCallable {
     override val arity: Int = declaration.params.size
 
-    context(ctx: InterpreterState)
+    context(iState: InterpreterState)
     override fun call(arguments: List<Any?>): Any? {
         val funEnv = Environment(closure).apply {
             declaration.params

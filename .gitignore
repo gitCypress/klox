@@ -56,3 +56,4 @@ ehthumbs.db
 
 ### Logs ###
 *.log
+/.claude/

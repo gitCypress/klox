@@ -1,47 +1,45 @@
+/**
+ * 该 Resolver 目前只涉及对变量的静态分析
+ */
+
 package exp.compiler.klox.frontend
 
 import exp.compiler.klox.common.LErr
 import exp.compiler.klox.lang.Expr
 import exp.compiler.klox.lang.Stmt
 import exp.compiler.klox.lang.Token
+import kotlin.collections.forEach
 
-internal fun List<Stmt>.resolve(): MutableMap<Expr, Int> = with(ResolverState()) {
-    for (statement in this@resolve) {
-        statement.resolve()
+// ===== External Function =====
+
+internal fun List<Stmt>.resolve(): MutableMap<Expr, Int> =
+    with(ResolverState()) {
+        resolveStatements(this@resolve)
+        localsResult
     }
-    localsResult
-}
 
-private enum class VarStat {
-    DECLARED,
-    DEFINED,
-}
+// ===== Resolver =====
 
-private enum class FunctionType {
-    NONE,
-    FUNCTION
-}
-
-
-private class ResolverState() {
-    val scopes: ArrayDeque<MutableMap<String, VarStat>> = ArrayDeque()
-    var currentFunction: FunctionType = FunctionType.NONE
-    val localsResult: MutableMap<Expr, Int> = mutableMapOf()
-}
+/**
+ * Stmt 中：
+ * 涉及作用域变化的：Block、Function
+ * 涉及变量定义的：Block、Function、Var
+ */
 
 context(rState: ResolverState)
 private fun Stmt.resolve(): Unit = when (this) {
     is Stmt.Block -> {
         rState.beginScope()
-        statements.resolveStatements()
+        resolveStatements(statements)
         rState.endScope()
     }
 
     is Stmt.Expression -> expression.resolve()
     is Stmt.Function -> {
+        // 这里为了递归正常工作，声明完就立即定义了
         rState.declare(name)
         rState.define(name)
-        resolveFunction(FunctionType.FUNCTION)
+        resolveFunction(params, body, FunctionType.FUNCTION)
     }
 
     is Stmt.If -> {
@@ -64,12 +62,39 @@ private fun Stmt.resolve(): Unit = when (this) {
     }
 }
 
+context(rState: ResolverState)
+private fun resolveStatements(stmts: List<Stmt>) {
+    stmts.forEach { it.resolve() }
+}
+
+context(rState: ResolverState)
+private fun resolveFunction(params : List<Token>, body : List<Stmt>, type: FunctionType) {
+    val enclosingFunction = rState.currentFunType
+    rState.currentFunType = type
+
+    rState.beginScope()
+    params.forEach {
+        rState.declare(it)
+        rState.define(it)
+    }
+    body.resolve()
+    rState.endScope()
+
+    rState.currentFunType = enclosingFunction
+}
+
+/**
+ * Expr 中：
+ * 涉及变量分析的：Assign、Variable
+ * Assign 是写变量用的，Variable 是读变量用的，二者都是变量名绑定操作
+ * localResults 只对变量名绑定操作有意义
+ */
 
 context(rState: ResolverState)
 private fun Expr.resolve(): Unit = when (this) {
     is Expr.Assign -> {
         value.resolve()
-        resolveLocal(name)
+        resolveLocal(this, name)
     }
 
     is Expr.Binary -> {
@@ -79,7 +104,7 @@ private fun Expr.resolve(): Unit = when (this) {
 
     is Expr.Call -> {
         callee.resolve()
-        arguments.forEach { it.resolve() }
+        resolveArguments(arguments)
     }
 
     is Expr.Grouping -> expression.resolve()
@@ -95,64 +120,75 @@ private fun Expr.resolve(): Unit = when (this) {
             rState.scopes.isNotEmpty()
             && rState.scopes.last()[name.lexeme] == VarStat.DECLARED
         ) {
+            // 避免 var a = a; 的写法，这会导致 a = nil
+            // 具体见 Stmt.resolve()
             LErr.error(name, "Can't read local variable in its own initializer.")
         }
-        resolveLocal(name)
-    }
-}
 
-private fun ResolverState.beginScope() {
-    this.scopes.add(mutableMapOf())
-}
-
-private fun ResolverState.endScope() {
-    this.scopes.removeLast()
-}
-
-private fun ResolverState.declare(name: Token) {
-    scopes.lastOrNull()?.apply {
-        if (containsKey(name.lexeme)) {
-            LErr.error(name, "Already a variable with this name in this scope.")
-        }
-        put(name.lexeme, VarStat.DECLARED)
-    }
-}
-
-private fun ResolverState.define(name: Token) {
-    scopes.lastOrNull()?.let { it[name.lexeme] = VarStat.DEFINED }
-}
-
-context(rState: ResolverState)
-private fun List<Stmt>.resolveStatements() {
-    for (statement in this) {
-        statement.resolve()
+        resolveLocal(this, name)
     }
 }
 
 context(rState: ResolverState)
-private fun Expr.resolveLocal(name: Token) {
+private fun resolveLocal(expr: Expr, name: Token) {
     rState.scopes
         .asReversed()
         .withIndex()
         .firstNotNullOfOrNull { (depth, scope) ->
             depth.takeIf { scope.containsKey(name.lexeme) }
         }
-        ?.let { rState.localsResult.put(this, it) }
+        ?.let {
+            rState.localsResult.put(expr, it)
+        }
 }
 
 context(rState: ResolverState)
-private fun Stmt.Function.resolveFunction(type: FunctionType) {
-    val enclosingFunction = rState.currentFunction
-    rState.currentFunction = type
-
-    rState.beginScope()
-    params.forEach {
-        rState.declare(it)
-        rState.define(it)
-    }
-    body.resolve()
-    rState.endScope()
-
-    rState.currentFunction = enclosingFunction
+private fun resolveArguments(args: List<Expr>) {
+    args.forEach { it.resolve() }
 }
 
+// ===== ResolverState =====
+
+private enum class VarStat {
+    DECLARED,
+    DEFINED,
+}
+
+private enum class FunctionType {
+    NONE,
+    FUNCTION
+}
+
+private class ResolverState() {
+    val scopes: ArrayDeque<MutableMap<String, VarStat>> = ArrayDeque()  // 在解析时模拟运行时的环境链
+    var currentFunType: FunctionType = FunctionType.NONE
+
+    val localsResult: MutableMap<Expr, Int> = mutableMapOf()  // 存储解析结果
+}
+
+private fun ResolverState.beginScope() {
+    scopes.add(mutableMapOf())
+}
+
+private fun ResolverState.endScope() {
+    scopes.removeLast()
+}
+
+private fun ResolverState.declare(name: Token) {
+    scopes
+        .lastOrNull()
+        ?.apply {
+            if (containsKey(name.lexeme)) {
+                LErr.error(name, "Already a variable with this name in this scope.")
+            }
+            put(name.lexeme, VarStat.DECLARED)
+        }
+}
+
+private fun ResolverState.define(name: Token) {
+    scopes
+        .lastOrNull()
+        ?.apply {
+            put(name.lexeme, VarStat.DEFINED)
+        }
+}

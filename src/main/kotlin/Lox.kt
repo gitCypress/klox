@@ -24,7 +24,7 @@ fun main(args: Array<String>) {
         define("clock", object : LCallable {
             override val arity: Int = 0
 
-            context(ctx: InterpreterState)
+            context(iState: InterpreterState)
             override fun call(arguments: List<Any?>): Long = System.currentTimeMillis().milliseconds.inWholeSeconds
 
             override fun toString(): String = "<native fn clock>"
@@ -61,8 +61,10 @@ private fun runFile(path: String, globalEnv: Environment) {
 }
 
 
-private fun String.run(globalEnv: Environment) =
-    scan().parse().apply {
+private fun String.run(globalEnv: Environment) = this
+    .scan()
+    .parse()
+    .apply {
         with(InterpreterState(globalEnv, resolve())) {
             if (LErr.hadError) return@apply
             interpret()

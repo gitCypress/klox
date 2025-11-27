@@ -9,7 +9,8 @@
       "WebFetch(domain:blog.jetbrains.com)",
       "WebFetch(domain:github.com)",
       "Bash(gradlew.bat:*)",
-      "Bash(./gradlew:*)"
+      "Bash(./gradlew:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
